@@ -2,87 +2,117 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuth } from "../../contexts/AuthContext";
 
-// Define the Project interface for type checking
+// Define the Activity interface for type checking
 interface Activity {
-  id: string;
+  id: number;
   title: string;
   description: string;
   date: string;
+  created_at: string;
+  updated_at: string;
 }
 
-export default function Repository() {
+// Define the API response interface
+interface ApiResponse {
+  data: Activity[];
+  status: string;
+}
+
+export default function Activities() {
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sortKey, setSortKey] = useState<keyof Activity>("lastUpdated");
+  const [sortKey, setSortKey] = useState<keyof Activity>("date");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const { authenticatedFetch } = useAuth();
 
-  // Fetch projects from the API
+  // Fetch activities from the API
   useEffect(() => {
-    const fetchActivites = async () => {
+    let isMounted = true;
+
+    const fetchActivities = async () => {
       try {
+        console.log("Starting to fetch activities...");
         setLoading(true);
-
-        const baseUrl =
-          Platform.OS === "web"
-            ? "http://127.0.0.1:8000"
-            : "http://192.168.68.123:8000";
-
-        const API_URL = `${baseUrl}/api/activities`;
-
-        console.log("Fetching from:", API_URL);
-        const response = await fetch(API_URL);
+        const response = await authenticatedFetch("/api/activities");
+        console.log("Activities response status:", response.status);
 
         if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
+          const errorData = await response.json().catch(() => null);
+          console.error("Activities error data:", errorData);
+          throw new Error(
+            errorData?.message || `HTTP error! Status: ${response.status}`
+          );
         }
 
-        const data = await response.json();
-        setActivities(data);
-        setError(null);
+        const responseData = (await response.json()) as ApiResponse;
+        console.log("Activities data received:", responseData);
+
+        if (isMounted) {
+          setActivities(responseData.data || []);
+          setError(null);
+        }
       } catch (err) {
-        setError(
-          "Failed to fetch activities. Please check your connection and API endpoint."
-        );
-        console.error("Error fetching activities:", err);
+        console.error("Error in fetchActivities:", err);
+        if (isMounted) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Failed to fetch activities. Please check your connection and API endpoint."
+          );
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
-    fetchActivites();
-  }, []);
+    fetchActivities();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [authenticatedFetch]);
 
   const formatDate = (dateString: string): string => {
-    const isoString = dateString.replace(" ", "T");
-    const date = new Date(isoString);
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return "Invalid Date";
+      }
 
-    if (isNaN(date.getTime())) {
+      const options: Intl.DateTimeFormatOptions = {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      };
+
+      return date.toLocaleString("en-PH", options);
+    } catch (error) {
+      console.error("Error formatting date:", error);
       return "Invalid Date";
     }
-
-    const options: Intl.DateTimeFormatOptions = {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    };
-
-    return date.toLocaleString("en-PH", options);
   };
 
   // Sort activities based on the current sort key and direction
   const sortedActivities = [...activities].sort((a, b) => {
+    if (sortKey === "date") {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      return sortDirection === "asc" ? dateA - dateB : dateB - dateA;
+    }
     return sortDirection === "asc"
       ? String(a[sortKey]).localeCompare(String(b[sortKey]))
       : String(b[sortKey]).localeCompare(String(a[sortKey]));
@@ -136,7 +166,7 @@ export default function Repository() {
         </Text>
       </View>
       <View style={styles.cell}>
-        <Text style={styles.primaryText}>{formatDate(item.date)}</Text>
+        <Text style={styles.dateText}>{formatDate(item.date)}</Text>
       </View>
     </View>
   );
@@ -151,14 +181,18 @@ export default function Repository() {
     );
   }
 
-  // Main render - the repository table
+  // Main render - the activities table
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Activities</Text>
 
-      {activities.length === 0 ? (
+      {error ? (
         <View style={styles.centerContainer}>
-          <Text style={styles.noProjectsText}>No activities found</Text>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : activities.length === 0 ? (
+        <View style={styles.centerContainer}>
+          <Text style={styles.noActivitiesText}>No activities found</Text>
         </View>
       ) : (
         <View style={styles.tableContainer}>
@@ -166,7 +200,7 @@ export default function Repository() {
           <FlatList
             data={sortedActivities}
             renderItem={renderItem}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => String(item.id)}
             contentContainerStyle={styles.listContent}
           />
         </View>
@@ -236,26 +270,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
   },
-  statusText: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    overflow: "hidden",
-    alignSelf: "flex-start",
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  statusCompleted: {
-    backgroundColor: "#e6f7e6",
-    color: "#2e7d32",
-  },
-  statusInProgress: {
-    backgroundColor: "#e3f2fd",
-    color: "#0277bd",
-  },
-  statusPending: {
-    backgroundColor: "#fff8e1",
-    color: "#ff8f00",
+  dateText: {
+    fontSize: 14,
+    color: "#666",
   },
   listContent: {
     flexGrow: 1,
@@ -271,24 +288,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "500",
   },
-  errorHelpText: {
-    color: "#666",
-    textAlign: "center",
-    marginBottom: 16,
-    paddingHorizontal: 20,
-    fontSize: 14,
-  },
-  retryButton: {
-    backgroundColor: "#0066cc",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 4,
-  },
-  retryButtonText: {
-    color: "#fff",
-    fontWeight: "500",
-  },
-  noProjectsText: {
+  noActivitiesText: {
     color: "#666",
     fontSize: 16,
   },

@@ -1,13 +1,8 @@
 import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Platform,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuth } from "../../contexts/AuthContext";
 
 interface GroupDetails {
   id: number;
@@ -22,75 +17,49 @@ interface GroupDetails {
   logo: string | null;
 }
 
-// Add status style mapping
-const getStatusStyle = (status: string) => {
-  const statusMap: Record<string, any> = {
-    pending: styles.statusPending,
-    active: styles.statusActive,
-    inactive: styles.statusInactive,
-  };
-  return statusMap[status.toLowerCase()] || styles.statusPending;
-};
-
 export default function GroupDetails() {
   const { id } = useLocalSearchParams();
   const [group, setGroup] = useState<GroupDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { authenticatedFetch } = useAuth();
 
   useEffect(() => {
     const fetchGroupDetails = async () => {
       try {
         setLoading(true);
-        const baseUrl = "http://192.168.68.123:8000";
-
-        const apiUrl = `${baseUrl}/api/groups/${id}`;
-        console.log("Device platform:", Platform.OS);
-        console.log("Fetching group details for ID:", id);
-        console.log("Request URL:", apiUrl);
-
-        const response = await fetch(apiUrl, {
-          method: "GET",
-          headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-          },
-        });
+        const response = await authenticatedFetch(`/api/groups/${id}`);
 
         if (!response.ok) {
-          const errorText = await response.text();
-          console.error("API Error Response:", errorText);
-          throw new Error(
-            `HTTP error! Status: ${response.status}. ${errorText}`
-          );
+          throw new Error(`HTTP error! Status: ${response.status}`);
         }
 
         const data = await response.json();
-        console.log("API Response:", JSON.stringify(data, null, 2));
-
-        if (!data || !data.id) {
-          throw new Error("Invalid group data received");
-        }
-
         setGroup(data);
         setError(null);
       } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "An unknown error occurred";
-        setError(`Failed to fetch group details: ${errorMessage}`);
+        setError("Failed to fetch group details. Please try again later.");
         console.error("Error fetching group details:", err);
       } finally {
         setLoading(false);
       }
     };
 
-    if (id) {
-      fetchGroupDetails();
-    } else {
-      setError("No group ID provided");
-      setLoading(false);
+    fetchGroupDetails();
+  }, [id, authenticatedFetch]);
+
+  const getStatusStyle = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "active":
+        return styles.statusActive;
+      case "inactive":
+        return styles.statusInactive;
+      case "pending":
+        return styles.statusPending;
+      default:
+        return {};
     }
-  }, [id]);
+  };
 
   if (loading) {
     return (
@@ -157,13 +126,6 @@ export default function GroupDetails() {
               <Text style={styles.value}>{group.description}</Text>
             </View>
           )}
-
-          <View style={styles.detailRow}>
-            <Text style={styles.label}>Created:</Text>
-            <Text style={styles.value}>
-              {new Date(group.created_at).toLocaleDateString()}
-            </Text>
-          </View>
         </View>
       </View>
     </SafeAreaView>

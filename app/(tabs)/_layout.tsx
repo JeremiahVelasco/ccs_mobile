@@ -1,6 +1,7 @@
 import { Tabs } from "expo-router";
 import React from "react";
-import { Platform } from "react-native";
+import { Platform, TouchableOpacity } from "react-native";
+import { useAuth } from "../../contexts/AuthContext";
 
 import { HapticTab } from "@/components/HapticTab";
 import { IconSymbol } from "@/components/ui/IconSymbol";
@@ -10,12 +11,21 @@ import { useColorScheme } from "@/hooks/useColorScheme";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const { logout } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
 
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
-        headerShown: false,
+        headerShown: true,
         tabBarButton: HapticTab,
         tabBarBackground: TabBarBackground,
         tabBarStyle: Platform.select({
@@ -25,6 +35,15 @@ export default function TabLayout() {
           },
           default: {},
         }),
+        headerRight: () => (
+          <TouchableOpacity onPress={handleLogout} style={{ marginRight: 15 }}>
+            <IconSymbol
+              size={24}
+              name="rectangle.portrait.and.arrow.right"
+              color={Colors[colorScheme ?? "light"].tint}
+            />
+          </TouchableOpacity>
+        ),
       }}
     >
       <Tabs.Screen

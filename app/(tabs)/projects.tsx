@@ -2,13 +2,13 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuth } from "../../contexts/AuthContext";
 
 // Define the Project interface for type checking
 interface Project {
@@ -22,28 +22,20 @@ interface Project {
   status: string;
 }
 
-export default function Repository() {
+export default function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [sortKey, setSortKey] = useState<keyof Project>("lastUpdated");
+  const [sortKey, setSortKey] = useState<keyof Project>("title");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const { authenticatedFetch } = useAuth();
 
   // Fetch projects from the API
   useEffect(() => {
     const fetchProjects = async () => {
       try {
         setLoading(true);
-
-        const baseUrl =
-          Platform.OS === "web"
-            ? "http://127.0.0.1:8000"
-            : "http://192.168.68.123:8000";
-
-        const API_URL = `${baseUrl}/api/projects`;
-
-        console.log("Fetching from:", API_URL);
-        const response = await fetch(API_URL);
+        const response = await authenticatedFetch("/api/projects");
 
         if (!response.ok) {
           throw new Error(`HTTP error! Status: ${response.status}`);
@@ -63,7 +55,7 @@ export default function Repository() {
     };
 
     fetchProjects();
-  }, []);
+  }, [authenticatedFetch]);
 
   // Sort projects based on the current sort key and direction
   const sortedProjects = [...projects].sort((a, b) => {
@@ -95,14 +87,6 @@ export default function Repository() {
     <View style={styles.headerRow}>
       <TouchableOpacity
         style={styles.headerCell}
-        onPress={() => handleSort("status")}
-      >
-        <Text style={styles.headerText}>
-          Status{renderSortIndicator("status")}
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.headerCell}
         onPress={() => handleSort("title")}
       >
         <Text style={styles.headerText}>
@@ -111,18 +95,18 @@ export default function Repository() {
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.headerCell}
-        onPress={() => handleSort("final_grade")}
+        onPress={() => handleSort("group")}
       >
         <Text style={styles.headerText}>
-          Grade{renderSortIndicator("final_grade")}
+          Group{renderSortIndicator("group")}
         </Text>
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.headerCell}
-        onPress={() => handleSort("awards")}
+        onPress={() => handleSort("status")}
       >
         <Text style={styles.headerText}>
-          Awards{renderSortIndicator("awards")}
+          Status{renderSortIndicator("status")}
         </Text>
       </TouchableOpacity>
     </View>
@@ -132,30 +116,33 @@ export default function Repository() {
   const renderItem = ({ item }: { item: Project }) => (
     <View style={styles.row}>
       <View style={styles.cell}>
-        <Text
-          style={[
-            styles.statusText,
-            item.progress === "100"
-              ? styles.statusCompleted
-              : item.progress >= "50"
-              ? styles.statusInProgress
-              : styles.statusPending,
-          ]}
-        >
-          {item.progress}
-        </Text>
-      </View>
-      <View style={styles.cell}>
         <Text style={styles.primaryText}>{item.title}</Text>
+        <Text style={styles.secondaryText}>Progress: {item.progress}</Text>
       </View>
       <View style={styles.cell}>
-        <Text>{item.final_grade}</Text>
+        <Text>{item.group}</Text>
       </View>
       <View style={styles.cell}>
-        <Text>{item.awards}</Text>
+        <Text style={[styles.statusText, getStatusStyle(item.status)]}>
+          {item.status}
+        </Text>
       </View>
     </View>
   );
+
+  // Get status style based on status value
+  const getStatusStyle = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "completed":
+        return styles.statusCompleted;
+      case "in progress":
+        return styles.statusInProgress;
+      case "pending":
+        return styles.statusPending;
+      default:
+        return {};
+    }
+  };
 
   // Handle loading state
   if (loading) {
@@ -167,12 +154,16 @@ export default function Repository() {
     );
   }
 
-  // Main render - the repository table
+  // Main render - the projects table
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Projects</Text>
 
-      {projects.length === 0 ? (
+      {error ? (
+        <View style={styles.centerContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : projects.length === 0 ? (
         <View style={styles.centerContainer}>
           <Text style={styles.noProjectsText}>No projects found</Text>
         </View>
@@ -266,12 +257,12 @@ const styles = StyleSheet.create({
     color: "#2e7d32",
   },
   statusInProgress: {
-    backgroundColor: "#fff8e1",
-    color: "#ff8f00",
+    backgroundColor: "#e3f2fd",
+    color: "#0277bd",
   },
   statusPending: {
-    backgroundColor: "#f2304d",
-    color: "#ffe2e7",
+    backgroundColor: "#fff8e1",
+    color: "#ff8f00",
   },
   listContent: {
     flexGrow: 1,
@@ -285,23 +276,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 8,
     fontSize: 16,
-    fontWeight: "500",
-  },
-  errorHelpText: {
-    color: "#666",
-    textAlign: "center",
-    marginBottom: 16,
-    paddingHorizontal: 20,
-    fontSize: 14,
-  },
-  retryButton: {
-    backgroundColor: "#0066cc",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 4,
-  },
-  retryButtonText: {
-    color: "#fff",
     fontWeight: "500",
   },
   noProjectsText: {

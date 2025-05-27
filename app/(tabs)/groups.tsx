@@ -1,68 +1,77 @@
-import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuth } from "../../contexts/AuthContext";
 
 // Define the Group interface for type checking
 interface Group {
-  id: number;
-  logo: string;
+  id: string;
   name: string;
-  leader: string;
+  group_code: string;
+  status: string;
+  leader_id: string;
   adviser: string;
+  description: string;
 }
 
 export default function Groups() {
-  const router = useRouter();
   const [groups, setGroups] = useState<Group[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<keyof Group>("name");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const { authenticatedFetch } = useAuth();
 
   // Fetch groups from the API
   useEffect(() => {
+    let isMounted = true;
+
     const fetchGroups = async () => {
       try {
         setLoading(true);
-
-        const baseUrl =
-          Platform.OS === "web"
-            ? "http://127.0.0.1:8000"
-            : "http://192.168.68.123:8000";
-
-        const API_URL = `${baseUrl}/api/groups`;
-
-        console.log("Fetching from:", API_URL);
-        const response = await fetch(API_URL);
+        const response = await authenticatedFetch("/api/groups");
 
         if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
+          const errorData = await response.json().catch(() => null);
+          throw new Error(
+            errorData?.message || `HTTP error! Status: ${response.status}`
+          );
         }
 
         const data = await response.json();
-        setGroups(data);
-        setError(null);
+        if (isMounted) {
+          setGroups(Array.isArray(data) ? data : []);
+          setError(null);
+        }
       } catch (err) {
-        setError(
-          "Failed to fetch groups. Please check your connection and API endpoint."
-        );
-        console.error("Error fetching groups:", err);
+        if (isMounted) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Failed to fetch groups. Please check your connection and API endpoint."
+          );
+          console.error("Error fetching groups:", err);
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     fetchGroups();
-  }, []);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [authenticatedFetch]);
 
   // Sort groups based on the current sort key and direction
   const sortedGroups = [...groups].sort((a, b) => {
@@ -89,9 +98,18 @@ export default function Groups() {
     return "";
   };
 
-  // Handle row click
-  const handleRowPress = (group: Group) => {
-    router.push(`/group/${group.id}`);
+  // Get status style based on status value
+  const getStatusStyle = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "active":
+        return styles.statusActive;
+      case "inactive":
+        return styles.statusInactive;
+      case "pending":
+        return styles.statusPending;
+      default:
+        return styles.statusDefault;
+    }
   };
 
   // Render header for the table
@@ -105,18 +123,18 @@ export default function Groups() {
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.headerCell}
-        onPress={() => handleSort("leader")}
+        onPress={() => handleSort("group_code")}
       >
         <Text style={styles.headerText}>
-          Leader{renderSortIndicator("leader")}
+          Group Code{renderSortIndicator("group_code")}
         </Text>
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.headerCell}
-        onPress={() => handleSort("adviser")}
+        onPress={() => handleSort("status")}
       >
         <Text style={styles.headerText}>
-          Adviser{renderSortIndicator("adviser")}
+          Status{renderSortIndicator("status")}
         </Text>
       </TouchableOpacity>
     </View>
@@ -124,17 +142,22 @@ export default function Groups() {
 
   // Render a single row in the table
   const renderItem = ({ item }: { item: Group }) => (
-    <TouchableOpacity style={styles.row} onPress={() => handleRowPress(item)}>
+    <View style={styles.row}>
       <View style={styles.cell}>
         <Text style={styles.primaryText}>{item.name}</Text>
+        <Text style={styles.secondaryText} numberOfLines={2}>
+          {item.description}
+        </Text>
       </View>
       <View style={styles.cell}>
-        <Text>{item.leader}</Text>
+        <Text style={styles.codeText}>{item.group_code}</Text>
       </View>
       <View style={styles.cell}>
-        <Text>{item.adviser}</Text>
+        <Text style={[styles.statusText, getStatusStyle(item.status)]}>
+          {item.status}
+        </Text>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 
   // Handle loading state
@@ -142,19 +165,23 @@ export default function Groups() {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#0066cc" />
-        <Text style={styles.loadingText}>Loading projects...</Text>
+        <Text style={styles.loadingText}>Loading groups...</Text>
       </View>
     );
   }
 
-  // Main render - the repository table
+  // Main render - the groups table
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Groups</Text>
 
-      {groups.length === 0 ? (
+      {error ? (
         <View style={styles.centerContainer}>
-          <Text style={styles.noProjectsText}>No groups found</Text>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : groups.length === 0 ? (
+        <View style={styles.centerContainer}>
+          <Text style={styles.noGroupsText}>No groups found</Text>
         </View>
       ) : (
         <View style={styles.tableContainer}>
@@ -162,7 +189,7 @@ export default function Groups() {
           <FlatList
             data={sortedGroups}
             renderItem={renderItem}
-            keyExtractor={(item) => String(item.id)}
+            keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
           />
         </View>
@@ -232,26 +259,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
   },
-  statusText: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    overflow: "hidden",
-    alignSelf: "flex-start",
-    fontSize: 12,
+  codeText: {
+    fontSize: 14,
+    color: "#333",
     fontWeight: "500",
   },
-  statusCompleted: {
-    backgroundColor: "#e6f7e6",
+  statusText: {
+    fontSize: 14,
+    fontWeight: "500",
+    textTransform: "capitalize",
+  },
+  statusActive: {
     color: "#2e7d32",
   },
-  statusInProgress: {
-    backgroundColor: "#e3f2fd",
-    color: "#0277bd",
+  statusInactive: {
+    color: "#c62828",
   },
   statusPending: {
-    backgroundColor: "#fff8e1",
-    color: "#ff8f00",
+    color: "#f57c00",
+  },
+  statusDefault: {
+    color: "#666",
   },
   listContent: {
     flexGrow: 1,
@@ -267,24 +295,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "500",
   },
-  errorHelpText: {
-    color: "#666",
-    textAlign: "center",
-    marginBottom: 16,
-    paddingHorizontal: 20,
-    fontSize: 14,
-  },
-  retryButton: {
-    backgroundColor: "#0066cc",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 4,
-  },
-  retryButtonText: {
-    color: "#fff",
-    fontWeight: "500",
-  },
-  noProjectsText: {
+  noGroupsText: {
     color: "#666",
     fontSize: 16,
   },

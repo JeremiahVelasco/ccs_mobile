@@ -2,13 +2,13 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuth } from "../../contexts/AuthContext";
 
 // Define the Project interface for type checking
 interface Project {
@@ -24,24 +24,16 @@ export default function Repository() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [sortKey, setSortKey] = useState<keyof Project>("lastUpdated");
+  const [sortKey, setSortKey] = useState<keyof Project>("title");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const { authenticatedFetch } = useAuth();
 
   // Fetch projects from the API
   useEffect(() => {
     const fetchProjects = async () => {
       try {
         setLoading(true);
-
-        const baseUrl =
-          Platform.OS === "web"
-            ? "http://127.0.0.1:8000"
-            : "http://192.168.68.123:8000";
-
-        const API_URL = `${baseUrl}/api/repository`;
-
-        console.log("Fetching from:", API_URL);
-        const response = await fetch(API_URL);
+        const response = await authenticatedFetch("/api/repository");
 
         if (!response.ok) {
           throw new Error(`HTTP error! Status: ${response.status}`);
@@ -61,7 +53,7 @@ export default function Repository() {
     };
 
     fetchProjects();
-  }, []);
+  }, [authenticatedFetch]);
 
   // Sort projects based on the current sort key and direction
   const sortedProjects = [...projects].sort((a, b) => {
@@ -149,9 +141,13 @@ export default function Repository() {
   // Main render - the repository table
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Project</Text>
+      <Text style={styles.title}>Projects</Text>
 
-      {projects.length === 0 ? (
+      {error ? (
+        <View style={styles.centerContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      ) : projects.length === 0 ? (
         <View style={styles.centerContainer}>
           <Text style={styles.noProjectsText}>No projects found</Text>
         </View>
@@ -231,27 +227,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
   },
-  statusText: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    overflow: "hidden",
-    alignSelf: "flex-start",
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  statusCompleted: {
-    backgroundColor: "#e6f7e6",
-    color: "#2e7d32",
-  },
-  statusInProgress: {
-    backgroundColor: "#e3f2fd",
-    color: "#0277bd",
-  },
-  statusPending: {
-    backgroundColor: "#fff8e1",
-    color: "#ff8f00",
-  },
   listContent: {
     flexGrow: 1,
   },
@@ -264,23 +239,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 8,
     fontSize: 16,
-    fontWeight: "500",
-  },
-  errorHelpText: {
-    color: "#666",
-    textAlign: "center",
-    marginBottom: 16,
-    paddingHorizontal: 20,
-    fontSize: 14,
-  },
-  retryButton: {
-    backgroundColor: "#0066cc",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 4,
-  },
-  retryButtonText: {
-    color: "#fff",
     fontWeight: "500",
   },
   noProjectsText: {
