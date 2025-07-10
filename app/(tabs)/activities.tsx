@@ -1,3 +1,4 @@
+import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -15,7 +16,8 @@ interface Activity {
   id: number;
   title: string;
   description: string;
-  date: string;
+  start_date: string;
+  end_date: string;
   created_at: string;
   updated_at: string;
 }
@@ -30,9 +32,10 @@ export default function Activities() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sortKey, setSortKey] = useState<keyof Activity>("date");
+  const [sortKey, setSortKey] = useState<keyof Activity>("start_date");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const { authenticatedFetch } = useAuth();
+  const router = useRouter();
 
   // Fetch activities from the API
   useEffect(() => {
@@ -108,9 +111,9 @@ export default function Activities() {
 
   // Sort activities based on the current sort key and direction
   const sortedActivities = [...activities].sort((a, b) => {
-    if (sortKey === "date") {
-      const dateA = new Date(a.date).getTime();
-      const dateB = new Date(b.date).getTime();
+    if (sortKey === "start_date") {
+      const dateA = new Date(a.start_date).getTime();
+      const dateB = new Date(b.start_date).getTime();
       return sortDirection === "asc" ? dateA - dateB : dateB - dateA;
     }
     return sortDirection === "asc"
@@ -149,16 +152,21 @@ export default function Activities() {
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.headerCell}
-        onPress={() => handleSort("date")}
+        onPress={() => handleSort("start_date")}
       >
-        <Text style={styles.headerText}>Date{renderSortIndicator("date")}</Text>
+        <Text style={styles.headerText}>
+          Start Date{renderSortIndicator("start_date")}
+        </Text>
       </TouchableOpacity>
     </View>
   );
 
   // Render a single row in the table
   const renderItem = ({ item }: { item: Activity }) => (
-    <View style={styles.row}>
+    <TouchableOpacity
+      style={styles.row}
+      onPress={() => router.push(`/activity/${item.id}`)}
+    >
       <View style={styles.cell}>
         <Text style={styles.primaryText}>{item.title}</Text>
         <Text style={styles.secondaryText} numberOfLines={2}>
@@ -166,9 +174,10 @@ export default function Activities() {
         </Text>
       </View>
       <View style={styles.cell}>
-        <Text style={styles.dateText}>{formatDate(item.date)}</Text>
+        <Text style={styles.dateText}>{formatDate(item.start_date)}</Text>
+        <Text style={styles.dateText}>{formatDate(item.end_date)}</Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   // Handle loading state

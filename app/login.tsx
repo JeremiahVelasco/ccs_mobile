@@ -2,9 +2,11 @@ import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   Alert,
+  Image,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
@@ -13,6 +15,7 @@ import {
 } from "react-native";
 import { ThemedText } from "../components/ThemedText";
 import { useAuth } from "../contexts/AuthContext";
+import { useThemeColor } from "../hooks/useThemeColor";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -20,6 +23,7 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { login } = useAuth();
+  const primaryColor = useThemeColor({}, "primary");
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -44,12 +48,20 @@ export default function LoginScreen() {
       style={styles.container}
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <View style={styles.inner}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContainer}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.logoContainer}>
+            <Image
+              source={require("../assets/images/feudlogo.png")}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          </View>
           <View style={styles.header}>
-            <ThemedText style={styles.title}>Welcome Back</ThemedText>
             <ThemedText style={styles.subtitle}>Sign in to continue</ThemedText>
           </View>
-
           <View style={styles.form}>
             <View style={styles.inputContainer}>
               <ThemedText style={styles.label}>Email</ThemedText>
@@ -62,9 +74,9 @@ export default function LoginScreen() {
                 autoCapitalize="none"
                 autoComplete="email"
                 editable={!isLoading}
+                placeholderTextColor="#A0A0A0"
               />
             </View>
-
             <View style={styles.inputContainer}>
               <ThemedText style={styles.label}>Password</ThemedText>
               <TextInput
@@ -76,11 +88,15 @@ export default function LoginScreen() {
                 autoCapitalize="none"
                 autoComplete="password"
                 editable={!isLoading}
+                placeholderTextColor="#A0A0A0"
               />
             </View>
-
             <TouchableOpacity
-              style={[styles.button, isLoading && styles.buttonDisabled]}
+              style={[
+                styles.button,
+                { backgroundColor: primaryColor },
+                isLoading && styles.buttonDisabled,
+              ]}
               onPress={handleLogin}
               disabled={isLoading}
             >
@@ -89,7 +105,7 @@ export default function LoginScreen() {
               </ThemedText>
             </TouchableOpacity>
           </View>
-        </View>
+        </ScrollView>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
   );
@@ -100,13 +116,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
   },
-  inner: {
-    flex: 1,
-    padding: 24,
+  scrollContainer: {
+    flexGrow: 1,
     justifyContent: "center",
+    padding: 24,
+  },
+  logoContainer: {
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  logo: {
+    width: 300,
+    height: 100,
   },
   header: {
-    marginBottom: 48,
+    marginBottom: 32,
+    alignItems: "center",
   },
   title: {
     fontSize: 32,
@@ -133,13 +158,18 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 16,
     fontSize: 16,
+    backgroundColor: "#f9f9f9",
   },
   button: {
-    backgroundColor: "#007AFF",
     padding: 16,
     borderRadius: 8,
     alignItems: "center",
     marginTop: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   buttonDisabled: {
     opacity: 0.7,

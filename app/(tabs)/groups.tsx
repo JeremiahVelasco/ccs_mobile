@@ -1,3 +1,4 @@
+import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -28,6 +29,7 @@ export default function Groups() {
   const [sortKey, setSortKey] = useState<keyof Group>("name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const { authenticatedFetch } = useAuth();
+  const router = useRouter();
 
   // Fetch groups from the API
   useEffect(() => {
@@ -142,11 +144,16 @@ export default function Groups() {
 
   // Render a single row in the table
   const renderItem = ({ item }: { item: Group }) => (
-    <View style={styles.row}>
+    <TouchableOpacity
+      style={styles.row}
+      onPress={() => router.push(`/group/${item.id}`)}
+    >
       <View style={styles.cell}>
         <Text style={styles.primaryText}>{item.name}</Text>
         <Text style={styles.secondaryText} numberOfLines={2}>
-          {item.description}
+          {item.description.length > 10
+            ? item.description.substring(0, 10) + "..."
+            : item.description}
         </Text>
       </View>
       <View style={styles.cell}>
@@ -157,7 +164,7 @@ export default function Groups() {
           {item.status}
         </Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   // Handle loading state

@@ -2,46 +2,33 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
-  Keyboard,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../contexts/AuthContext";
 
-interface User {
+interface Activity {
   id: number;
-  name: string;
-  email: string;
-  role: string;
+  title: string;
+  description: string;
+  date: string;
 }
 
-interface GroupDetails {
-  id: number;
-  name: string;
-  group_code: string;
-  leader_id: number;
-  description: string | null;
-  adviser: number;
+interface ApiResponse {
+  data: Activity;
   status: string;
-  created_at: string;
-  updated_at: string;
-  logo: string | null;
-  leader: User;
-  adviser_user: User;
-  members: User[];
 }
 
-export default function GroupDetails() {
+export default function ActivityDetails() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const [group, setGroup] = useState<GroupDetails | null>(null);
-  const [editedGroup, setEditedGroup] = useState<GroupDetails | null>(null);
+  const [activity, setActivity] = useState<Activity | null>(null);
+  const [editedActivity, setEditedActivity] = useState<Activity | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,20 +37,28 @@ export default function GroupDetails() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        console.log("Fetching activity with ID:", id);
         setLoading(true);
-        const response = await authenticatedFetch(`/api/groups/${id}`);
+        const response = await authenticatedFetch(`/api/activities/${id}`);
+        console.log("Activity response status:", response.status);
 
         if (!response.ok) {
           throw new Error(`HTTP error! Status: ${response.status}`);
         }
 
-        const groupData = await response.json();
-        setGroup(groupData);
-        setEditedGroup(groupData);
-        setError(null);
+        const responseData = (await response.json()) as ApiResponse;
+        console.log("Activity data received:", responseData);
+
+        if (responseData.data) {
+          setActivity(responseData.data);
+          setEditedActivity(responseData.data);
+          setError(null);
+        } else {
+          throw new Error("No activity data received");
+        }
       } catch (err) {
+        console.error("Error fetching activity data:", err);
         setError("Failed to fetch data. Please try again later.");
-        console.error("Error fetching data:", err);
       } finally {
         setLoading(false);
       }
@@ -72,36 +67,34 @@ export default function GroupDetails() {
     fetchData();
   }, [id, authenticatedFetch]);
 
-  const handleFieldChange = (field: keyof GroupDetails, value: any) => {
-    if (editedGroup) {
-      setEditedGroup({
-        ...editedGroup,
+  const handleFieldChange = (field: keyof Activity, value: any) => {
+    if (editedActivity) {
+      setEditedActivity({
+        ...editedActivity,
         [field]: value,
       });
     }
   };
 
   const hasChanges = () => {
-    if (!group || !editedGroup) return false;
-    return JSON.stringify(group) !== JSON.stringify(editedGroup);
+    if (!activity || !editedActivity) return false;
+    return JSON.stringify(activity) !== JSON.stringify(editedActivity);
   };
 
   const handleSave = async () => {
-    if (!editedGroup) return;
+    if (!editedActivity) return;
 
     try {
       setSaving(true);
-      const response = await authenticatedFetch(`/api/groups/${id}`, {
+      const response = await authenticatedFetch(`/api/activities/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: editedGroup.name,
-          description: editedGroup.description,
-          status: editedGroup.status,
-          leader_id: editedGroup.leader_id,
-          adviser: editedGroup.adviser,
+          title: editedActivity.title,
+          description: editedActivity.description,
+          date: editedActivity.date,
         }),
       });
 
@@ -109,28 +102,48 @@ export default function GroupDetails() {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
 
-      const updatedData = await response.json();
-      setGroup(updatedData);
-      setEditedGroup(updatedData);
-      setError(null);
+      const responseData = (await response.json()) as ApiResponse;
+      if (responseData.data) {
+        setActivity(responseData.data);
+        setEditedActivity(responseData.data);
+        setError(null);
+      } else {
+        throw new Error("No activity data received after update");
+      }
     } catch (err) {
       setError("Failed to save changes. Please try again later.");
-      console.error("Error saving group details:", err);
+      console.error("Error saving activity details:", err);
     } finally {
       setSaving(false);
     }
   };
 
-  const getStatusStyle = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "active":
-        return styles.statusActive;
-      case "inactive":
-        return styles.statusInactive;
-      case "pending":
-        return styles.statusPending;
-      default:
-        return {};
+  const formatDate = (dateString: string): string => {
+    if (!dateString) return "";
+
+    try {
+      console.log("Formatting date:", dateString);
+      const date = new Date(dateString);
+      console.log("Parsed date:", date);
+
+      if (isNaN(date.getTime())) {
+        console.log("Invalid date detected");
+        return dateString;
+      }
+
+      const formattedDate = date.toLocaleDateString("en-PH", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+      console.log("Formatted date:", formattedDate);
+      return formattedDate;
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return dateString;
     }
   };
 
@@ -138,7 +151,7 @@ export default function GroupDetails() {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#0066cc" />
-        <Text style={styles.loadingText}>Loading group details...</Text>
+        <Text style={styles.loadingText}>Loading activity details...</Text>
       </View>
     );
   }
@@ -151,20 +164,25 @@ export default function GroupDetails() {
     );
   }
 
-  if (!group || !editedGroup) {
+  if (!activity || !editedActivity) {
     return (
       <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>Group not found</Text>
+        <Text style={styles.errorText}>Activity not found</Text>
       </View>
     );
   }
 
+  console.log("Rendering activity details:", editedActivity);
+
   return (
     <SafeAreaView style={styles.container}>
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+      >
         <View style={styles.content}>
           <View style={styles.header}>
-            <Text style={styles.title}>{editedGroup.name}</Text>
+            <Text style={styles.title}>{editedActivity.title}</Text>
             {hasChanges() && (
               <TouchableOpacity
                 style={[styles.saveButton, saving && styles.saveButtonDisabled]}
@@ -179,58 +197,20 @@ export default function GroupDetails() {
           </View>
 
           <View style={styles.detailsContainer}>
-            {editedGroup.logo && (
-              <View style={styles.logoContainer}>
-                <Image
-                  source={{ uri: editedGroup.logo }}
-                  style={styles.logo}
-                  resizeMode="contain"
-                />
-              </View>
-            )}
-
             <View style={styles.detailRow}>
-              <Text style={styles.label}>Name:</Text>
+              <Text style={styles.label}>Title:</Text>
               <TextInput
                 style={styles.input}
-                value={editedGroup.name}
-                onChangeText={(value) => handleFieldChange("name", value)}
-                placeholder="Enter group name"
-                returnKeyType="done"
-                onSubmitEditing={Keyboard.dismiss}
+                value={editedActivity.title}
+                onChangeText={(value) => handleFieldChange("title", value)}
+                placeholder="Enter activity title"
               />
             </View>
 
             <View style={styles.detailRow}>
-              <Text style={styles.label}>Group Code:</Text>
-              <Text style={styles.value}>{editedGroup.group_code}</Text>
-            </View>
-
-            <View style={styles.detailRow}>
-              <Text style={styles.label}>Adviser:</Text>
+              <Text style={styles.label}>Date:</Text>
               <Text style={styles.value}>
-                {editedGroup.adviser_user?.name || "No adviser assigned"}
-              </Text>
-            </View>
-
-            <View style={styles.detailRow}>
-              <Text style={styles.label}>Leader:</Text>
-              <Text style={styles.value}>
-                {editedGroup.leader?.name || "No leader assigned"}
-              </Text>
-            </View>
-
-            <View style={styles.detailRow}>
-              <Text style={styles.label}>Members:</Text>
-              <Text style={styles.value}>
-                {editedGroup.members.map((member) => member.name).join(", ")}
-              </Text>
-            </View>
-
-            <View style={styles.detailRow}>
-              <Text style={styles.label}>Status:</Text>
-              <Text style={[styles.value, getStatusStyle(editedGroup.status)]}>
-                {editedGroup.status}
+                {formatDate(editedActivity.date)}
               </Text>
             </View>
 
@@ -238,20 +218,18 @@ export default function GroupDetails() {
               <Text style={styles.label}>Description:</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
-                value={editedGroup.description || ""}
+                value={editedActivity.description}
                 onChangeText={(value) =>
                   handleFieldChange("description", value)
                 }
                 placeholder="Enter description"
                 multiline
                 numberOfLines={4}
-                returnKeyType="done"
-                blurOnSubmit={true}
               />
             </View>
           </View>
         </View>
-      </TouchableWithoutFeedback>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -260,6 +238,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f5f5f5",
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   content: {
     padding: 16,
@@ -320,9 +304,6 @@ const styles = StyleSheet.create({
     height: 100,
     textAlignVertical: "top",
   },
-  statusInput: {
-    textTransform: "capitalize",
-  },
   loadingText: {
     marginTop: 10,
     color: "#666",
@@ -331,34 +312,6 @@ const styles = StyleSheet.create({
     color: "#d32f2f",
     fontSize: 16,
     textAlign: "center",
-  },
-  statusText: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    overflow: "hidden",
-    alignSelf: "flex-start",
-  },
-  statusPending: {
-    backgroundColor: "#fff8e1",
-    color: "#ff8f00",
-  },
-  statusActive: {
-    backgroundColor: "#e8f5e9",
-    color: "#2e7d32",
-  },
-  statusInactive: {
-    backgroundColor: "#ffebee",
-    color: "#c62828",
-  },
-  logoContainer: {
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  logo: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
   },
   saveButton: {
     backgroundColor: "#0066cc",

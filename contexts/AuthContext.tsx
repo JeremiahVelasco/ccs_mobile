@@ -4,31 +4,46 @@ import { Platform } from "react-native";
 
 type AuthContextType = {
   isAuthenticated: boolean;
+  user: any | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   getAuthHeaders: () => Promise<HeadersInit>;
   authenticatedFetch: (url: string, options?: RequestInit) => Promise<Response>;
+  fetchUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const BASE_URL =
-  Platform.OS === "web"
-    ? "http://127.0.0.1:8000"
-    : "http://192.168.68.132:8000";
+  Platform.OS === "web" ? "http://127.0.0.1:8000" : "http://192.168.2.2:8000";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [user, setUser] = useState<any | null>(null);
 
   useEffect(() => {
     // Check for existing auth token on app start
     checkAuthStatus();
   }, []);
 
+  const fetchUser = async () => {
+    try {
+      const response = await authenticatedFetch("/api/user");
+      const userData = await response.json();
+      setUser(userData);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      throw error;
+    }
+  };
+
   const checkAuthStatus = async () => {
     try {
       const token = await AsyncStorage.getItem("authToken");
       setIsAuthenticated(!!token);
+      if (token) {
+        await fetchUser();
+      }
     } catch (error) {
       console.error("Error checking auth status:", error);
       setIsAuthenticated(false);
@@ -157,10 +172,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider
       value={{
         isAuthenticated,
+        user,
         login,
         logout,
         getAuthHeaders,
         authenticatedFetch,
+        fetchUser,
       }}
     >
       {children}

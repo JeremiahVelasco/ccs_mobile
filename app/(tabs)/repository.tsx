@@ -1,7 +1,9 @@
+import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -18,6 +20,7 @@ interface Project {
   status: string;
   final_grade: string;
   awards: string;
+  logo: string; // URL to the project logo
 }
 
 export default function Repository() {
@@ -27,6 +30,7 @@ export default function Repository() {
   const [sortKey, setSortKey] = useState<keyof Project>("title");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const { authenticatedFetch } = useAuth();
+  const router = useRouter();
 
   // Fetch projects from the API
   useEffect(() => {
@@ -83,6 +87,9 @@ export default function Repository() {
   // Render header for the table
   const renderHeader = () => (
     <View style={styles.headerRow}>
+      <View style={styles.logoCell}>
+        <Text style={styles.headerText}>Logo</Text>
+      </View>
       <TouchableOpacity
         style={styles.headerCell}
         onPress={() => handleSort("title")}
@@ -112,7 +119,17 @@ export default function Repository() {
 
   // Render a single row in the table
   const renderItem = ({ item }: { item: Project }) => (
-    <View style={styles.row}>
+    <TouchableOpacity
+      style={styles.row}
+      onPress={() => router.push(`/repository/${item.id}`)}
+    >
+      <View style={styles.logoCell}>
+        <Image
+          source={{ uri: item.logo }}
+          style={styles.logo}
+          defaultSource={require("../../assets/images/default-logo.webp")}
+        />
+      </View>
       <View style={styles.cell}>
         <Text style={styles.primaryText}>{item.title}</Text>
         <Text style={styles.secondaryText} numberOfLines={2}>
@@ -125,7 +142,7 @@ export default function Repository() {
       <View style={styles.cell}>
         <Text>{item.awards}</Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   // Handle loading state
@@ -141,7 +158,7 @@ export default function Repository() {
   // Main render - the repository table
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Projects</Text>
+      <Text style={styles.title}>Repository</Text>
 
       {error ? (
         <View style={styles.centerContainer}>
@@ -244,5 +261,16 @@ const styles = StyleSheet.create({
   noProjectsText: {
     color: "#666",
     fontSize: 16,
+  },
+  logoCell: {
+    width: 60,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 8,
+  },
+  logo: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
 });

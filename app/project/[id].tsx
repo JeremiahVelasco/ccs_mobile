@@ -3,45 +3,45 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Image,
-  Keyboard,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../contexts/AuthContext";
 
-interface User {
+interface Panelist {
   id: number;
   name: string;
   email: string;
   role: string;
 }
 
-interface GroupDetails {
+interface ProjectDetails {
   id: number;
-  name: string;
-  group_code: string;
-  leader_id: number;
+  title: string;
+  logo: string | null;
   description: string | null;
-  adviser: number;
+  panelists: Panelist[];
   status: string;
+  progress: number;
+  final_grade: number | null;
+  awards: string[];
+  completion_probability: number;
   created_at: string;
   updated_at: string;
-  logo: string | null;
-  leader: User;
-  adviser_user: User;
-  members: User[];
 }
 
-export default function GroupDetails() {
+export default function ProjectDetails() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const [group, setGroup] = useState<GroupDetails | null>(null);
-  const [editedGroup, setEditedGroup] = useState<GroupDetails | null>(null);
+  const [project, setProject] = useState<ProjectDetails | null>(null);
+  const [editedProject, setEditedProject] = useState<ProjectDetails | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,15 +51,21 @@ export default function GroupDetails() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await authenticatedFetch(`/api/groups/${id}`);
+        const response = await authenticatedFetch(`/api/projects/${id}`);
 
         if (!response.ok) {
           throw new Error(`HTTP error! Status: ${response.status}`);
         }
 
-        const groupData = await response.json();
-        setGroup(groupData);
-        setEditedGroup(groupData);
+        const responseData = await response.json();
+        // Extract project data from the nested structure
+        const projectData = {
+          ...responseData.project,
+          progress: Math.round(responseData.progress * 100),
+          panelists: responseData.panelists,
+        };
+        setProject(projectData);
+        setEditedProject(projectData);
         setError(null);
       } catch (err) {
         setError("Failed to fetch data. Please try again later.");
@@ -72,36 +78,38 @@ export default function GroupDetails() {
     fetchData();
   }, [id, authenticatedFetch]);
 
-  const handleFieldChange = (field: keyof GroupDetails, value: any) => {
-    if (editedGroup) {
-      setEditedGroup({
-        ...editedGroup,
+  const handleFieldChange = (field: keyof ProjectDetails, value: any) => {
+    if (editedProject) {
+      setEditedProject({
+        ...editedProject,
         [field]: value,
       });
     }
   };
 
   const hasChanges = () => {
-    if (!group || !editedGroup) return false;
-    return JSON.stringify(group) !== JSON.stringify(editedGroup);
+    if (!project || !editedProject) return false;
+    return JSON.stringify(project) !== JSON.stringify(editedProject);
   };
 
   const handleSave = async () => {
-    if (!editedGroup) return;
+    if (!editedProject) return;
 
     try {
       setSaving(true);
-      const response = await authenticatedFetch(`/api/groups/${id}`, {
+      const response = await authenticatedFetch(`/api/projects/${id}/update`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: editedGroup.name,
-          description: editedGroup.description,
-          status: editedGroup.status,
-          leader_id: editedGroup.leader_id,
-          adviser: editedGroup.adviser,
+          title: editedProject.title,
+          description: editedProject.description,
+          status: editedProject.status,
+          progress: editedProject.progress,
+          final_grade: editedProject.final_grade,
+          awards: editedProject.awards,
+          completion_probability: editedProject.completion_probability,
         }),
       });
 
@@ -110,12 +118,12 @@ export default function GroupDetails() {
       }
 
       const updatedData = await response.json();
-      setGroup(updatedData);
-      setEditedGroup(updatedData);
+      setProject(updatedData);
+      setEditedProject(updatedData);
       setError(null);
     } catch (err) {
       setError("Failed to save changes. Please try again later.");
-      console.error("Error saving group details:", err);
+      console.error("Error saving project details:", err);
     } finally {
       setSaving(false);
     }
@@ -123,12 +131,12 @@ export default function GroupDetails() {
 
   const getStatusStyle = (status: string) => {
     switch (status.toLowerCase()) {
-      case "active":
-        return styles.statusActive;
-      case "inactive":
-        return styles.statusInactive;
-      case "pending":
-        return styles.statusPending;
+      case "in progress":
+        return styles.statusInProgress;
+      case "for review":
+        return styles.statusForReview;
+      case "done":
+        return styles.statusDone;
       default:
         return {};
     }
@@ -138,7 +146,7 @@ export default function GroupDetails() {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#0066cc" />
-        <Text style={styles.loadingText}>Loading group details...</Text>
+        <Text style={styles.loadingText}>Loading project details...</Text>
       </View>
     );
   }
@@ -151,20 +159,23 @@ export default function GroupDetails() {
     );
   }
 
-  if (!group || !editedGroup) {
+  if (!project || !editedProject) {
     return (
       <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>Group not found</Text>
+        <Text style={styles.errorText}>Project not found</Text>
       </View>
     );
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+      >
         <View style={styles.content}>
           <View style={styles.header}>
-            <Text style={styles.title}>{editedGroup.name}</Text>
+            <Text style={styles.title}>{editedProject.title}</Text>
             {hasChanges() && (
               <TouchableOpacity
                 style={[styles.saveButton, saving && styles.saveButtonDisabled]}
@@ -179,10 +190,10 @@ export default function GroupDetails() {
           </View>
 
           <View style={styles.detailsContainer}>
-            {editedGroup.logo && (
+            {editedProject.logo && (
               <View style={styles.logoContainer}>
                 <Image
-                  source={{ uri: editedGroup.logo }}
+                  source={{ uri: editedProject.logo }}
                   style={styles.logo}
                   resizeMode="contain"
                 />
@@ -190,68 +201,93 @@ export default function GroupDetails() {
             )}
 
             <View style={styles.detailRow}>
-              <Text style={styles.label}>Name:</Text>
+              <Text style={styles.label}>Title:</Text>
               <TextInput
                 style={styles.input}
-                value={editedGroup.name}
-                onChangeText={(value) => handleFieldChange("name", value)}
-                placeholder="Enter group name"
-                returnKeyType="done"
-                onSubmitEditing={Keyboard.dismiss}
+                value={editedProject.title}
+                onChangeText={(value) => handleFieldChange("title", value)}
+                placeholder="Enter project title"
               />
             </View>
 
             <View style={styles.detailRow}>
-              <Text style={styles.label}>Group Code:</Text>
-              <Text style={styles.value}>{editedGroup.group_code}</Text>
-            </View>
-
-            <View style={styles.detailRow}>
-              <Text style={styles.label}>Adviser:</Text>
-              <Text style={styles.value}>
-                {editedGroup.adviser_user?.name || "No adviser assigned"}
-              </Text>
-            </View>
-
-            <View style={styles.detailRow}>
-              <Text style={styles.label}>Leader:</Text>
-              <Text style={styles.value}>
-                {editedGroup.leader?.name || "No leader assigned"}
-              </Text>
-            </View>
-
-            <View style={styles.detailRow}>
-              <Text style={styles.label}>Members:</Text>
-              <Text style={styles.value}>
-                {editedGroup.members.map((member) => member.name).join(", ")}
-              </Text>
-            </View>
-
-            <View style={styles.detailRow}>
               <Text style={styles.label}>Status:</Text>
-              <Text style={[styles.value, getStatusStyle(editedGroup.status)]}>
-                {editedGroup.status}
+              <Text
+                style={[styles.value, getStatusStyle(editedProject.status)]}
+              >
+                {editedProject.status}
               </Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Text style={styles.label}>Progress:</Text>
+              <View style={styles.progressContainer}>
+                <View
+                  style={[
+                    styles.progressBar,
+                    { width: `${editedProject.progress}%` },
+                  ]}
+                />
+                <Text style={styles.progressText}>
+                  {editedProject.progress}%
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Text style={styles.label}>Final Grade:</Text>
+              <Text style={styles.value}>
+                {editedProject.final_grade
+                  ? Math.round(editedProject.final_grade)
+                  : "N/A"}
+              </Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Text style={styles.label}>Completion Probability:</Text>
+              <Text style={styles.value}>
+                {editedProject.completion_probability}%
+              </Text>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Text style={styles.label}>Awards:</Text>
+              <View style={styles.awardsContainer}>
+                {editedProject.awards.map((award, index) => (
+                  <Text key={index} style={styles.awardText}>
+                    • {award}
+                  </Text>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.detailRow}>
+              <Text style={styles.label}>Panelists:</Text>
+              <View style={styles.panelistsContainer}>
+                {editedProject.panelists.map((panelist) => (
+                  <Text key={panelist.id} style={styles.panelistText}>
+                    • {panelist.name} ({panelist.role})
+                  </Text>
+                ))}
+              </View>
             </View>
 
             <View style={styles.detailRow}>
               <Text style={styles.label}>Description:</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
-                value={editedGroup.description || ""}
+                value={editedProject.description || ""}
                 onChangeText={(value) =>
                   handleFieldChange("description", value)
                 }
                 placeholder="Enter description"
                 multiline
                 numberOfLines={4}
-                returnKeyType="done"
-                blurOnSubmit={true}
               />
             </View>
           </View>
         </View>
-      </TouchableWithoutFeedback>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -260,6 +296,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f5f5f5",
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   content: {
     padding: 16,
@@ -320,9 +362,6 @@ const styles = StyleSheet.create({
     height: 100,
     textAlignVertical: "top",
   },
-  statusInput: {
-    textTransform: "capitalize",
-  },
   loadingText: {
     marginTop: 10,
     color: "#666",
@@ -332,24 +371,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: "center",
   },
-  statusText: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    overflow: "hidden",
-    alignSelf: "flex-start",
+  statusInProgress: {
+    backgroundColor: "#e3f2fd",
+    color: "#1976d2",
+    padding: 4,
+    borderRadius: 4,
   },
-  statusPending: {
-    backgroundColor: "#fff8e1",
-    color: "#ff8f00",
+  statusForReview: {
+    backgroundColor: "#fff3e0",
+    color: "#f57c00",
+    padding: 4,
+    borderRadius: 4,
   },
-  statusActive: {
+  statusDone: {
     backgroundColor: "#e8f5e9",
     color: "#2e7d32",
-  },
-  statusInactive: {
-    backgroundColor: "#ffebee",
-    color: "#c62828",
+    padding: 4,
+    borderRadius: 4,
   },
   logoContainer: {
     alignItems: "center",
@@ -374,5 +412,40 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontWeight: "600",
     fontSize: 16,
+  },
+  progressContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f5f5f5",
+    borderRadius: 4,
+    height: 20,
+    overflow: "hidden",
+  },
+  progressBar: {
+    height: "100%",
+    backgroundColor: "#4caf50",
+  },
+  progressText: {
+    position: "absolute",
+    width: "100%",
+    textAlign: "center",
+    color: "#000",
+    fontWeight: "500",
+  },
+  awardsContainer: {
+    marginTop: 4,
+  },
+  awardText: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 4,
+  },
+  panelistsContainer: {
+    marginTop: 4,
+  },
+  panelistText: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 4,
   },
 });

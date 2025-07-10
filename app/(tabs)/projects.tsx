@@ -1,7 +1,9 @@
+import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -13,16 +15,18 @@ import { useAuth } from "../../contexts/AuthContext";
 // Define the Project interface for type checking
 interface Project {
   id: string;
-  progress: string;
   title: string;
+  logo: string | null;
+  progress: number;
+  status: string;
   group: string;
   panelists: string;
   final_grade: string;
   awards: string;
-  status: string;
 }
 
 export default function Projects() {
+  const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -86,6 +90,12 @@ export default function Projects() {
   const renderHeader = () => (
     <View style={styles.headerRow}>
       <TouchableOpacity
+        style={[styles.headerCell, styles.logoCell]}
+        onPress={() => handleSort("title")}
+      >
+        <Text style={styles.headerText}>Logo</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
         style={styles.headerCell}
         onPress={() => handleSort("title")}
       >
@@ -95,10 +105,10 @@ export default function Projects() {
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.headerCell}
-        onPress={() => handleSort("group")}
+        onPress={() => handleSort("progress")}
       >
         <Text style={styles.headerText}>
-          Group{renderSortIndicator("group")}
+          Progress{renderSortIndicator("progress")}
         </Text>
       </TouchableOpacity>
       <TouchableOpacity
@@ -114,31 +124,43 @@ export default function Projects() {
 
   // Render a single row in the table
   const renderItem = ({ item }: { item: Project }) => (
-    <View style={styles.row}>
-      <View style={styles.cell}>
-        <Text style={styles.primaryText}>{item.title}</Text>
-        <Text style={styles.secondaryText}>Progress: {item.progress}</Text>
+    <TouchableOpacity
+      style={styles.row}
+      onPress={() => router.push(`/project/${item.id}`)}
+    >
+      <View style={[styles.cell, styles.logoCell]}>
+        {item.logo ? (
+          <Image source={{ uri: item.logo }} style={styles.logo} />
+        ) : (
+          <View style={[styles.logo, styles.placeholderLogo]} />
+        )}
       </View>
       <View style={styles.cell}>
-        <Text>{item.group}</Text>
+        <Text style={styles.primaryText}>{item.title}</Text>
+      </View>
+      <View style={styles.cell}>
+        <View style={styles.progressContainer}>
+          <View style={[styles.progressBar, { width: `${item.progress}%` }]} />
+          <Text style={styles.progressText}>{item.progress}%</Text>
+        </View>
       </View>
       <View style={styles.cell}>
         <Text style={[styles.statusText, getStatusStyle(item.status)]}>
           {item.status}
         </Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   // Get status style based on status value
   const getStatusStyle = (status: string) => {
     switch (status.toLowerCase()) {
-      case "completed":
-        return styles.statusCompleted;
       case "in progress":
         return styles.statusInProgress;
-      case "pending":
-        return styles.statusPending;
+      case "for review":
+        return styles.statusForReview;
+      case "done":
+        return styles.statusDone;
       default:
         return {};
     }
@@ -157,8 +179,6 @@ export default function Projects() {
   // Main render - the projects table
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Projects</Text>
-
       {error ? (
         <View style={styles.centerContainer}>
           <Text style={styles.errorText}>{error}</Text>
@@ -188,16 +208,32 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: "#f5f5f5",
   },
-  centerContainer: {
-    flex: 1,
-    justifyContent: "center",
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: 20,
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    marginBottom: 20,
     color: "#333",
+  },
+  addButton: {
+    backgroundColor: "#0066cc",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  addButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
   tableContainer: {
     backgroundColor: "#ffffff",
@@ -220,6 +256,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
   },
+  logoCell: {
+    flex: 0.5,
+  },
   headerText: {
     fontWeight: "bold",
     color: "#555",
@@ -237,11 +276,34 @@ const styles = StyleSheet.create({
   primaryText: {
     fontSize: 16,
     fontWeight: "500",
-    marginBottom: 4,
   },
-  secondaryText: {
-    fontSize: 14,
-    color: "#666",
+  logo: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  placeholderLogo: {
+    backgroundColor: "#e0e0e0",
+  },
+  progressContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f5f5f5",
+    borderRadius: 4,
+    height: 16,
+    overflow: "hidden",
+  },
+  progressBar: {
+    height: "100%",
+    backgroundColor: "#4caf50",
+  },
+  progressText: {
+    position: "absolute",
+    width: "100%",
+    textAlign: "center",
+    color: "#000",
+    fontSize: 12,
+    fontWeight: "500",
   },
   statusText: {
     paddingVertical: 4,
@@ -252,17 +314,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
   },
-  statusCompleted: {
-    backgroundColor: "#e6f7e6",
-    color: "#2e7d32",
-  },
   statusInProgress: {
     backgroundColor: "#e3f2fd",
-    color: "#0277bd",
+    color: "#1976d2",
   },
-  statusPending: {
-    backgroundColor: "#fff8e1",
-    color: "#ff8f00",
+  statusForReview: {
+    backgroundColor: "#fff3e0",
+    color: "#f57c00",
+  },
+  statusDone: {
+    backgroundColor: "#e8f5e9",
+    color: "#2e7d32",
   },
   listContent: {
     flexGrow: 1,
