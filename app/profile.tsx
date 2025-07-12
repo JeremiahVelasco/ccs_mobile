@@ -6,13 +6,17 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import { useAuth } from "../contexts/AuthContext";
@@ -84,131 +88,99 @@ export default function ProfileScreen() {
   };
 
   return (
-    <>
-      <ScrollView
-        style={styles.container}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+    <View style={{ flex: 1 }}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
       >
-        <View style={styles.header}>
-          <View style={styles.avatarContainer}>
-            <Image
-              source={require("@/assets/images/default-avatar.png")}
-              style={styles.avatar}
-            />
-            <TouchableOpacity style={styles.editAvatarButton}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <ScrollView
+            style={styles.container}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+          >
+            <View style={styles.header}>
+              <View style={styles.avatarContainer}>
+                <Image
+                  source={require("@/assets/images/default-avatar.png")}
+                  style={styles.avatar}
+                />
+                <TouchableOpacity style={styles.editAvatarButton}>
+                  <IconSymbol
+                    name="camera.fill"
+                    size={20}
+                    color={Colors[colorScheme ?? "light"].text}
+                  />
+                </TouchableOpacity>
+              </View>
+              <Text
+                style={[
+                  styles.name,
+                  { color: Colors[colorScheme ?? "light"].text },
+                ]}
+              >
+                {user?.name || "User Name"}
+              </Text>
+              <Text
+                style={[
+                  styles.email,
+                  { color: Colors[colorScheme ?? "light"].text },
+                ]}
+              >
+                {user?.email || "user@example.com"}
+              </Text>
+            </View>
+
+            <View style={styles.section}>
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  { color: Colors[colorScheme ?? "light"].text },
+                ]}
+              >
+                Account Settings
+              </Text>
+
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => setIsEditing(true)}
+              >
+                <IconSymbol
+                  name="person.fill"
+                  size={24}
+                  color={Colors[colorScheme ?? "light"].tint}
+                />
+                <Text
+                  style={[
+                    styles.menuText,
+                    { color: Colors[colorScheme ?? "light"].text },
+                  ]}
+                >
+                  Edit Profile
+                </Text>
+                <IconSymbol
+                  name="chevron.right"
+                  size={20}
+                  color={Colors[colorScheme ?? "light"].text}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={styles.logoutButton}
+              onPress={handleLogout}
+            >
               <IconSymbol
-                name="camera.fill"
-                size={20}
-                color={Colors[colorScheme ?? "light"].text}
+                name="rectangle.portrait.and.arrow.right"
+                size={24}
+                color="#FF3B30"
               />
+              <Text style={styles.logoutText}>Logout</Text>
             </TouchableOpacity>
-          </View>
-          <Text
-            style={[
-              styles.name,
-              { color: Colors[colorScheme ?? "light"].text },
-            ]}
-          >
-            {user?.name || "User Name"}
-          </Text>
-          <Text
-            style={[
-              styles.email,
-              { color: Colors[colorScheme ?? "light"].text },
-            ]}
-          >
-            {user?.email || "user@example.com"}
-          </Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text
-            style={[
-              styles.sectionTitle,
-              { color: Colors[colorScheme ?? "light"].text },
-            ]}
-          >
-            Account Settings
-          </Text>
-
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => setIsEditing(true)}
-          >
-            <IconSymbol
-              name="person.fill"
-              size={24}
-              color={Colors[colorScheme ?? "light"].tint}
-            />
-            <Text
-              style={[
-                styles.menuText,
-                { color: Colors[colorScheme ?? "light"].text },
-              ]}
-            >
-              Edit Profile
-            </Text>
-            <IconSymbol
-              name="chevron.right"
-              size={20}
-              color={Colors[colorScheme ?? "light"].text}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.menuItem}>
-            <IconSymbol
-              name="bell.fill"
-              size={24}
-              color={Colors[colorScheme ?? "light"].tint}
-            />
-            <Text
-              style={[
-                styles.menuText,
-                { color: Colors[colorScheme ?? "light"].text },
-              ]}
-            >
-              Notifications
-            </Text>
-            <IconSymbol
-              name="chevron.right"
-              size={20}
-              color={Colors[colorScheme ?? "light"].text}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.menuItem}>
-            <IconSymbol
-              name="lock.fill"
-              size={24}
-              color={Colors[colorScheme ?? "light"].tint}
-            />
-            <Text
-              style={[
-                styles.menuText,
-                { color: Colors[colorScheme ?? "light"].text },
-              ]}
-            >
-              Privacy & Security
-            </Text>
-            <IconSymbol
-              name="chevron.right"
-              size={20}
-              color={Colors[colorScheme ?? "light"].text}
-            />
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <IconSymbol
-            name="rectangle.portrait.and.arrow.right"
-            size={24}
-            color="#FF3B30"
-          />
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
-      </ScrollView>
+          </ScrollView>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
 
       <Modal
         visible={isEditing}
@@ -216,118 +188,130 @@ export default function ProfileScreen() {
         transparent={true}
         onRequestClose={() => setIsEditing(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View
-            style={[
-              styles.modalContent,
-              { backgroundColor: Colors[colorScheme ?? "light"].background },
-            ]}
-          >
-            <View style={styles.modalHeader}>
-              <Text
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalOverlay}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={styles.modalOverlay}>
+              <View
                 style={[
-                  styles.modalTitle,
-                  { color: Colors[colorScheme ?? "light"].text },
+                  styles.modalContent,
+                  {
+                    backgroundColor: Colors[colorScheme ?? "light"].background,
+                  },
                 ]}
               >
-                Edit Profile
-              </Text>
-              <TouchableOpacity
-                onPress={() => setIsEditing(false)}
-                style={styles.closeButton}
-              >
-                <IconSymbol
-                  name="xmark"
-                  size={24}
-                  color={Colors[colorScheme ?? "light"].text}
-                />
-              </TouchableOpacity>
-            </View>
+                <View style={styles.modalHeader}>
+                  <Text
+                    style={[
+                      styles.modalTitle,
+                      { color: Colors[colorScheme ?? "light"].text },
+                    ]}
+                  >
+                    Edit Profile
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setIsEditing(false)}
+                    style={styles.closeButton}
+                  >
+                    <IconSymbol
+                      name="xmark"
+                      size={24}
+                      color={Colors[colorScheme ?? "light"].text}
+                    />
+                  </TouchableOpacity>
+                </View>
 
-            <View style={styles.form}>
-              <View style={styles.inputContainer}>
-                <Text
-                  style={[
-                    styles.label,
-                    { color: Colors[colorScheme ?? "light"].text },
-                  ]}
-                >
-                  Name
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      color: Colors[colorScheme ?? "light"].text,
-                      borderColor: Colors[colorScheme ?? "light"].border,
-                    },
-                  ]}
-                  value={formData.name}
-                  onChangeText={(text) =>
-                    setFormData((prev) => ({ ...prev, name: text }))
-                  }
-                  placeholder="Enter your name"
-                  placeholderTextColor={
-                    Colors[colorScheme ?? "light"].text + "80"
-                  }
-                />
+                <View style={styles.form}>
+                  <View style={styles.inputContainer}>
+                    <Text
+                      style={[
+                        styles.label,
+                        { color: Colors[colorScheme ?? "light"].text },
+                      ]}
+                    >
+                      Name
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        {
+                          color: Colors[colorScheme ?? "light"].text,
+                          borderColor: "#e2e8f0",
+                        },
+                      ]}
+                      value={formData.name}
+                      onChangeText={(text) =>
+                        setFormData((prev) => ({ ...prev, name: text }))
+                      }
+                      placeholder="Enter your name"
+                      placeholderTextColor={
+                        Colors[colorScheme ?? "light"].text + "80"
+                      }
+                    />
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text
+                      style={[
+                        styles.label,
+                        { color: Colors[colorScheme ?? "light"].text },
+                      ]}
+                    >
+                      Email
+                    </Text>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        {
+                          color: Colors[colorScheme ?? "light"].text,
+                          borderColor: "#e2e8f0",
+                        },
+                      ]}
+                      value={formData.email}
+                      onChangeText={(text) =>
+                        setFormData((prev) => ({ ...prev, email: text }))
+                      }
+                      placeholder="Enter your email"
+                      placeholderTextColor={
+                        Colors[colorScheme ?? "light"].text + "80"
+                      }
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                    />
+                  </View>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.updateButton,
+                      loading && styles.updateButtonDisabled,
+                    ]}
+                    onPress={handleUpdateProfile}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.updateButtonText}>
+                        Update Profile
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
               </View>
-
-              <View style={styles.inputContainer}>
-                <Text
-                  style={[
-                    styles.label,
-                    { color: Colors[colorScheme ?? "light"].text },
-                  ]}
-                >
-                  Email
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      color: Colors[colorScheme ?? "light"].text,
-                      borderColor: Colors[colorScheme ?? "light"].border,
-                    },
-                  ]}
-                  value={formData.email}
-                  onChangeText={(text) =>
-                    setFormData((prev) => ({ ...prev, email: text }))
-                  }
-                  placeholder="Enter your email"
-                  placeholderTextColor={
-                    Colors[colorScheme ?? "light"].text + "80"
-                  }
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-              </View>
-
-              <TouchableOpacity
-                style={[
-                  styles.updateButton,
-                  loading && styles.updateButtonDisabled,
-                ]}
-                onPress={handleUpdateProfile}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.updateButtonText}>Update Profile</Text>
-                )}
-              </TouchableOpacity>
             </View>
-          </View>
-        </View>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
       </Modal>
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#025A2A",
   },
   header: {
     alignItems: "center",
@@ -389,7 +373,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 16,
     margin: 20,
-    backgroundColor: "#FF3B3010",
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "darkgray",
     borderRadius: 12,
   },
   logoutText: {
@@ -400,12 +386,11 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "center",
-    alignItems: "center",
+    paddingHorizontal: 20,
   },
   modalContent: {
-    width: "90%",
+    width: "100%",
     maxWidth: 400,
     borderRadius: 12,
     padding: 20,

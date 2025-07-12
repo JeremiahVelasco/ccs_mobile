@@ -30,6 +30,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await authenticatedFetch("/api/user");
       const userData = await response.json();
+
+      // If the API doesn't return roles, try to get them from storage
+      if (!userData.roles) {
+        const storedUserData = await AsyncStorage.getItem("userData");
+        if (storedUserData) {
+          const parsedUserData = JSON.parse(storedUserData);
+          userData.roles = parsedUserData.roles;
+          userData.primary_role = parsedUserData.primary_role;
+          userData.role = parsedUserData.role;
+          userData.group_role = parsedUserData.group_role;
+        }
+      }
+
       setUser(userData);
     } catch (error) {
       console.error("Error fetching user:", error);
@@ -42,6 +55,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const token = await AsyncStorage.getItem("authToken");
       setIsAuthenticated(!!token);
       if (token) {
+        // Try to get user data from storage first
+        const storedUserData = await AsyncStorage.getItem("userData");
+        if (storedUserData) {
+          const parsedUserData = JSON.parse(storedUserData);
+          setUser(parsedUserData);
+        }
         await fetchUser();
       }
     } catch (error) {
@@ -115,9 +134,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error(data.message || "Login failed");
       }
 
-      // Store both token and user data
+      // Store both token and user data with roles
       await AsyncStorage.setItem("authToken", data.token);
-      await AsyncStorage.setItem("userData", JSON.stringify(data.user));
+
+      // Combine user data with role information
+      const userData = {
+        ...data.user,
+        roles: data.roles,
+        primary_role: data.primary_role,
+        role: data.role, // Legacy compatibility
+        user_roles: data.user_roles, // Alternative naming
+        group_role: data.group_role,
+      };
+
+      await AsyncStorage.setItem("userData", JSON.stringify(userData));
+      setUser(userData);
       setIsAuthenticated(true);
     } catch (error) {
       console.error("Login error:", error);

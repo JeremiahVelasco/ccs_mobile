@@ -2,13 +2,14 @@ import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   FlatList,
+  RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../contexts/AuthContext";
 
 // Define the Group interface for type checking
@@ -25,6 +26,7 @@ interface Group {
 export default function Groups() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<keyof Group>("name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
@@ -75,6 +77,23 @@ export default function Groups() {
     };
   }, [authenticatedFetch]);
 
+  // Handle pull-to-refresh
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const response = await authenticatedFetch("/api/groups");
+      if (response.ok) {
+        const data = await response.json();
+        setGroups(Array.isArray(data) ? data : []);
+        setError(null);
+      }
+    } catch (err) {
+      console.error("Error refreshing groups:", err);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   // Sort groups based on the current sort key and direction
   const sortedGroups = [...groups].sort((a, b) => {
     return sortDirection === "asc"
@@ -82,7 +101,7 @@ export default function Groups() {
       : String(b[sortKey]).localeCompare(String(a[sortKey]));
   });
 
-  // Handle sorting when a column header is clicked
+  // Handle sorting when a sort button is pressed
   const handleSort = (key: keyof Group) => {
     if (sortKey === key) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
@@ -95,7 +114,7 @@ export default function Groups() {
   // Render a sort indicator arrow based on current sort state
   const renderSortIndicator = (key: keyof Group) => {
     if (sortKey === key) {
-      return sortDirection === "asc" ? " ▲" : " ▼";
+      return sortDirection === "asc" ? " ↑" : " ↓";
     }
     return "";
   };
@@ -104,206 +123,424 @@ export default function Groups() {
   const getStatusStyle = (status: string) => {
     switch (status.toLowerCase()) {
       case "active":
-        return styles.statusActive;
+        return {
+          backgroundColor: "#dcfce7",
+          color: "#166534",
+          borderColor: "#bbf7d0",
+        };
       case "inactive":
-        return styles.statusInactive;
+        return {
+          backgroundColor: "#fef2f2",
+          color: "#dc2626",
+          borderColor: "#fecaca",
+        };
       case "pending":
-        return styles.statusPending;
+        return {
+          backgroundColor: "#fef3c7",
+          color: "#d97706",
+          borderColor: "#fde68a",
+        };
       default:
-        return styles.statusDefault;
+        return {
+          backgroundColor: "#f3f4f6",
+          color: "#6b7280",
+          borderColor: "#e5e7eb",
+        };
     }
   };
 
-  // Render header for the table
-  const renderHeader = () => (
-    <View style={styles.headerRow}>
-      <TouchableOpacity
-        style={styles.headerCell}
-        onPress={() => handleSort("name")}
+  // Get status icon based on status
+  const getStatusIcon = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "active":
+        return "●";
+      case "inactive":
+        return "●";
+      case "pending":
+        return "●";
+      default:
+        return "●";
+    }
+  };
+
+  // Group Card Component
+  const GroupCard = ({ item, index }: { item: Group; index: number }) => {
+    const animatedValue = new Animated.Value(0);
+    const statusStyle = getStatusStyle(item.status);
+
+    React.useEffect(() => {
+      Animated.timing(animatedValue, {
+        toValue: 1,
+        duration: 300,
+        delay: index * 100,
+        useNativeDriver: true,
+      }).start();
+    }, []);
+
+    return (
+      <Animated.View
+        style={[
+          styles.groupCard,
+          {
+            opacity: animatedValue,
+            transform: [
+              {
+                translateY: animatedValue.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [20, 0],
+                }),
+              },
+            ],
+          },
+        ]}
       >
-        <Text style={styles.headerText}>Name{renderSortIndicator("name")}</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.headerCell}
-        onPress={() => handleSort("group_code")}
-      >
-        <Text style={styles.headerText}>
-          Group Code{renderSortIndicator("group_code")}
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.headerCell}
-        onPress={() => handleSort("status")}
-      >
-        <Text style={styles.headerText}>
-          Status{renderSortIndicator("status")}
-        </Text>
-      </TouchableOpacity>
-    </View>
+        <TouchableOpacity
+          style={styles.cardContent}
+          onPress={() => router.push(`/group/${item.id}`)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.cardHeader}>
+            <View style={styles.titleContainer}>
+              <Text style={styles.groupName} numberOfLines={2}>
+                {item.name}
+              </Text>
+              <Text style={styles.groupCode}>#{item.group_code}</Text>
+            </View>
+            <View style={[styles.statusBadge, statusStyle]}>
+              <Text style={[styles.statusIcon, { color: statusStyle.color }]}>
+                {getStatusIcon(item.status)}
+              </Text>
+              <Text style={[styles.statusText, { color: statusStyle.color }]}>
+                {item.status}
+              </Text>
+            </View>
+          </View>
+
+          <Text style={styles.groupDescription} numberOfLines={3}>
+            {item.description && item.description.length > 0
+              ? item.description
+              : "No description available"}
+          </Text>
+
+          <View style={styles.cardFooter}>
+            <View style={styles.advisorInfo}>
+              <Text style={styles.advisorLabel}>Advisor:</Text>
+              <Text style={styles.advisorName}>
+                {item.adviser || "Not assigned"}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.cardIndicator} />
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
+
+  // Render group card
+  const renderGroupCard = ({ item, index }: { item: Group; index: number }) => (
+    <GroupCard item={item} index={index} />
   );
 
-  // Render a single row in the table
-  const renderItem = ({ item }: { item: Group }) => (
-    <TouchableOpacity
-      style={styles.row}
-      onPress={() => router.push(`/group/${item.id}`)}
-    >
-      <View style={styles.cell}>
-        <Text style={styles.primaryText}>{item.name}</Text>
-        <Text style={styles.secondaryText} numberOfLines={2}>
-          {item.description.length > 10
-            ? item.description.substring(0, 10) + "..."
-            : item.description}
-        </Text>
+  // Render sort controls
+  const renderSortControls = () => (
+    <View style={styles.sortContainer}>
+      <Text style={styles.sortLabel}>Sort by:</Text>
+      <View style={styles.sortButtons}>
+        <TouchableOpacity
+          style={[
+            styles.sortButton,
+            sortKey === "name" && styles.sortButtonActive,
+          ]}
+          onPress={() => handleSort("name")}
+        >
+          <Text
+            style={[
+              styles.sortButtonText,
+              sortKey === "name" && styles.sortButtonTextActive,
+            ]}
+          >
+            Name{renderSortIndicator("name")}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.sortButton,
+            sortKey === "status" && styles.sortButtonActive,
+          ]}
+          onPress={() => handleSort("status")}
+        >
+          <Text
+            style={[
+              styles.sortButtonText,
+              sortKey === "status" && styles.sortButtonTextActive,
+            ]}
+          >
+            Status{renderSortIndicator("status")}
+          </Text>
+        </TouchableOpacity>
       </View>
-      <View style={styles.cell}>
-        <Text style={styles.codeText}>{item.group_code}</Text>
-      </View>
-      <View style={styles.cell}>
-        <Text style={[styles.statusText, getStatusStyle(item.status)]}>
-          {item.status}
-        </Text>
-      </View>
-    </TouchableOpacity>
+    </View>
   );
 
   // Handle loading state
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#0066cc" />
-        <Text style={styles.loadingText}>Loading groups...</Text>
+      <View style={styles.container}>
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#22c55e" />
+          <Text style={styles.loadingText}>Loading groups...</Text>
+        </View>
       </View>
     );
   }
 
-  // Main render - the groups table
+  // Main render - the groups list
   return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Groups</Text>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Groups</Text>
+        <Text style={styles.subtitle}>
+          {groups.length} {groups.length === 1 ? "group" : "groups"}
+        </Text>
+      </View>
 
       {error ? (
         <View style={styles.centerContainer}>
           <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={onRefresh}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
         </View>
       ) : groups.length === 0 ? (
         <View style={styles.centerContainer}>
           <Text style={styles.noGroupsText}>No groups found</Text>
+          <Text style={styles.noGroupsSubtext}>
+            Groups will appear here when available
+          </Text>
         </View>
       ) : (
-        <View style={styles.tableContainer}>
-          {renderHeader()}
+        <>
+          {renderSortControls()}
           <FlatList
             data={sortedGroups}
-            renderItem={renderItem}
+            renderItem={renderGroupCard}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={["#22c55e"]}
+                tintColor="#22c55e"
+              />
+            }
+            showsVerticalScrollIndicator={false}
           />
-        </View>
+        </>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#f8fafc",
+  },
+  header: {
+    padding: 20,
+    paddingBottom: 16,
+    backgroundColor: "#ffffff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e2e8f0",
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#1e293b",
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: "#64748b",
+    fontWeight: "500",
   },
   centerContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    padding: 20,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 20,
-    color: "#333",
-  },
-  tableContainer: {
+  sortContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     backgroundColor: "#ffffff",
-    borderRadius: 8,
-    overflow: "hidden",
-    elevation: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e2e8f0",
+  },
+  sortLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#374151",
+  },
+  sortButtons: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  sortButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#f1f5f9",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  sortButtonActive: {
+    backgroundColor: "#22c55e",
+    borderColor: "#22c55e",
+  },
+  sortButtonText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#64748b",
+  },
+  sortButtonTextActive: {
+    color: "#ffffff",
+  },
+  listContent: {
+    padding: 20,
+    paddingTop: 16,
+  },
+  groupCard: {
+    marginBottom: 16,
+    borderRadius: 16,
+    backgroundColor: "#ffffff",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  headerRow: {
+  cardContent: {
+    padding: 20,
+    position: "relative",
+  },
+  cardHeader: {
     flexDirection: "row",
-    backgroundColor: "#f0f0f0",
-    borderBottomWidth: 1,
-    borderBottomColor: "#ddd",
-    padding: 12,
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 12,
   },
-  headerCell: {
+  titleContainer: {
     flex: 1,
-    justifyContent: "center",
+    marginRight: 12,
   },
-  headerText: {
+  groupName: {
+    fontSize: 18,
     fontWeight: "bold",
-    color: "#555",
-  },
-  row: {
-    flexDirection: "row",
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-    padding: 12,
-  },
-  cell: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  primaryText: {
-    fontSize: 16,
-    fontWeight: "500",
+    color: "#1e293b",
     marginBottom: 4,
+    lineHeight: 24,
   },
-  secondaryText: {
+  groupCode: {
     fontSize: 14,
-    color: "#666",
+    fontWeight: "600",
+    color: "#22c55e",
+    backgroundColor: "#f0fdf4",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    alignSelf: "flex-start",
   },
-  codeText: {
-    fontSize: 14,
-    color: "#333",
-    fontWeight: "500",
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 4,
+  },
+  statusIcon: {
+    fontSize: 8,
   },
   statusText: {
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 12,
+    fontWeight: "600",
     textTransform: "capitalize",
   },
-  statusActive: {
-    color: "#2e7d32",
+  groupDescription: {
+    fontSize: 15,
+    color: "#64748b",
+    lineHeight: 22,
+    marginBottom: 16,
   },
-  statusInactive: {
-    color: "#c62828",
+  cardFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
-  statusPending: {
-    color: "#f57c00",
+  advisorInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
-  statusDefault: {
-    color: "#666",
+  advisorLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#374151",
   },
-  listContent: {
-    flexGrow: 1,
+  advisorName: {
+    fontSize: 14,
+    color: "#64748b",
+  },
+  cardIndicator: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    backgroundColor: "#22c55e",
+    borderTopLeftRadius: 16,
+    borderBottomLeftRadius: 16,
   },
   loadingText: {
-    marginTop: 10,
-    color: "#666",
+    marginTop: 12,
+    fontSize: 16,
+    color: "#64748b",
   },
   errorText: {
-    color: "#d32f2f",
+    color: "#dc2626",
     textAlign: "center",
-    marginBottom: 8,
+    marginBottom: 16,
     fontSize: 16,
     fontWeight: "500",
   },
-  noGroupsText: {
-    color: "#666",
+  retryButton: {
+    backgroundColor: "#22c55e",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: "#ffffff",
     fontSize: 16,
+    fontWeight: "600",
+  },
+  noGroupsText: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#64748b",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  noGroupsSubtext: {
+    fontSize: 16,
+    color: "#94a3b8",
+    textAlign: "center",
   },
 });

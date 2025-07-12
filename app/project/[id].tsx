@@ -14,10 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../contexts/AuthContext";
 
 interface Panelist {
-  id: number;
   name: string;
-  email: string;
-  role: string;
 }
 
 interface ProjectDetails {
@@ -25,12 +22,27 @@ interface ProjectDetails {
   title: string;
   logo: string | null;
   description: string | null;
+  deadline: string | null;
   panelists: Panelist[];
   status: string;
   progress: number;
   final_grade: number | null;
   awards: string[];
   completion_probability: number;
+  created_at: string;
+  updated_at: string;
+}
+
+interface Task {
+  id: string;
+  title: string;
+  description: string;
+  deadline: string | null;
+  assigned_to: string | string[];
+  status: string;
+  type: "development" | "documentation";
+  project_id: string;
+  is_faculty_approved: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -42,7 +54,10 @@ export default function ProjectDetails() {
   const [editedProject, setEditedProject] = useState<ProjectDetails | null>(
     null
   );
+  const [developmentTasks, setDevelopmentTasks] = useState<Task[]>([]);
+  const [documentationTasks, setDocumentationTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tasksLoading, setTasksLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { authenticatedFetch } = useAuth();
@@ -76,6 +91,40 @@ export default function ProjectDetails() {
     };
 
     fetchData();
+  }, [id, authenticatedFetch]);
+
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        setTasksLoading(true);
+
+        // Fetch development tasks
+        const devResponse = await authenticatedFetch(
+          `/api/projects/${id}/development-tasks`
+        );
+        if (devResponse.ok) {
+          const devTasks = await devResponse.json();
+          setDevelopmentTasks(devTasks);
+        }
+
+        // Fetch documentation tasks
+        const docResponse = await authenticatedFetch(
+          `/api/projects/${id}/documentation-tasks`
+        );
+        if (docResponse.ok) {
+          const docTasks = await docResponse.json();
+          setDocumentationTasks(docTasks);
+        }
+      } catch (err) {
+        console.error("Error fetching tasks:", err);
+      } finally {
+        setTasksLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchTasks();
+    }
   }, [id, authenticatedFetch]);
 
   const handleFieldChange = (field: keyof ProjectDetails, value: any) => {
@@ -129,6 +178,10 @@ export default function ProjectDetails() {
     }
   };
 
+  const handleTaskPress = (taskId: string) => {
+    router.push(`/task/${taskId}`);
+  };
+
   const getStatusStyle = (status: string) => {
     switch (status.toLowerCase()) {
       case "in progress":
@@ -136,10 +189,70 @@ export default function ProjectDetails() {
       case "for review":
         return styles.statusForReview;
       case "done":
+      case "approved":
         return styles.statusDone;
+      case "to-do":
+        return styles.statusTodo;
       default:
         return {};
     }
+  };
+
+  const getTaskStatusStyle = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "to-do":
+        return { backgroundColor: "#f8fafc", color: "#64748b" };
+      case "in progress":
+        return { backgroundColor: "#dbeafe", color: "#1d4ed8" };
+      case "for review":
+        return { backgroundColor: "#fff3e0", color: "#f57c00" };
+      case "done":
+      case "approved":
+        return { backgroundColor: "#e8f5e9", color: "#2e7d32" };
+      default:
+        return { backgroundColor: "#f8fafc", color: "#64748b" };
+    }
+  };
+
+  const renderTaskItem = (task: Task) => {
+    const statusStyle = getTaskStatusStyle(task.status);
+
+    return (
+      <TouchableOpacity
+        key={task.id}
+        style={styles.taskItem}
+        onPress={() => handleTaskPress(task.id)}
+      >
+        <View style={styles.taskHeader}>
+          <Text style={styles.taskTitle}>{task.title}</Text>
+          <View
+            style={[
+              styles.taskStatus,
+              { backgroundColor: statusStyle.backgroundColor },
+            ]}
+          >
+            <Text style={[styles.taskStatusText, { color: statusStyle.color }]}>
+              {task.status}
+            </Text>
+          </View>
+        </View>
+        {task.description && (
+          <Text style={styles.taskDescription} numberOfLines={2}>
+            {task.description}
+          </Text>
+        )}
+        <View style={styles.taskMeta}>
+          {task.deadline && (
+            <Text style={styles.taskDeadline}>
+              Due: {new Date(task.deadline).toLocaleDateString()}
+            </Text>
+          )}
+          {task.is_faculty_approved && (
+            <Text style={styles.approvedBadge}>✓ Faculty Approved</Text>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
   };
 
   if (loading) {
@@ -253,22 +366,31 @@ export default function ProjectDetails() {
             <View style={styles.detailRow}>
               <Text style={styles.label}>Awards:</Text>
               <View style={styles.awardsContainer}>
-                {editedProject.awards.map((award, index) => (
-                  <Text key={index} style={styles.awardText}>
-                    • {award}
-                  </Text>
-                ))}
+                {editedProject.awards && editedProject.awards.length > 0 ? (
+                  editedProject.awards.map((award, index) => (
+                    <Text key={`award-${index}`} style={styles.awardText}>
+                      • {award}
+                    </Text>
+                  ))
+                ) : (
+                  <Text style={styles.awardText}>No awards yet</Text>
+                )}
               </View>
             </View>
 
             <View style={styles.detailRow}>
               <Text style={styles.label}>Panelists:</Text>
               <View style={styles.panelistsContainer}>
-                {editedProject.panelists.map((panelist) => (
-                  <Text key={panelist.id} style={styles.panelistText}>
-                    • {panelist.name} ({panelist.role})
-                  </Text>
-                ))}
+                {editedProject.panelists &&
+                editedProject.panelists.length > 0 ? (
+                  editedProject.panelists.map((panelist, index) => (
+                    <Text key={`panelist-${index}`} style={styles.panelistText}>
+                      • {panelist.name}
+                    </Text>
+                  ))
+                ) : (
+                  <Text style={styles.panelistText}>No panelists assigned</Text>
+                )}
               </View>
             </View>
 
@@ -285,6 +407,52 @@ export default function ProjectDetails() {
                 numberOfLines={4}
               />
             </View>
+          </View>
+
+          {/* Tasks Section */}
+          <View style={styles.tasksContainer}>
+            <Text style={styles.sectionTitle}>Tasks</Text>
+
+            {tasksLoading ? (
+              <View style={styles.tasksLoadingContainer}>
+                <ActivityIndicator size="small" color="#0066cc" />
+                <Text style={styles.tasksLoadingText}>Loading tasks...</Text>
+              </View>
+            ) : (
+              <>
+                {/* Development Tasks */}
+                {developmentTasks.length > 0 && (
+                  <View style={styles.taskTypeContainer}>
+                    <Text style={styles.taskTypeTitle}>Development Tasks</Text>
+                    <View style={styles.tasksList}>
+                      {developmentTasks.map(renderTaskItem)}
+                    </View>
+                  </View>
+                )}
+
+                {/* Documentation Tasks */}
+                {documentationTasks.length > 0 && (
+                  <View style={styles.taskTypeContainer}>
+                    <Text style={styles.taskTypeTitle}>
+                      Documentation Tasks
+                    </Text>
+                    <View style={styles.tasksList}>
+                      {documentationTasks.map(renderTaskItem)}
+                    </View>
+                  </View>
+                )}
+
+                {/* No Tasks Message */}
+                {developmentTasks.length === 0 &&
+                  documentationTasks.length === 0 && (
+                    <View style={styles.noTasksContainer}>
+                      <Text style={styles.noTasksText}>
+                        No tasks found for this project
+                      </Text>
+                    </View>
+                  )}
+              </>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -332,6 +500,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 4,
+    marginBottom: 20,
   },
   detailRow: {
     marginBottom: 12,
@@ -386,6 +555,12 @@ const styles = StyleSheet.create({
   statusDone: {
     backgroundColor: "#e8f5e9",
     color: "#2e7d32",
+    padding: 4,
+    borderRadius: 4,
+  },
+  statusTodo: {
+    backgroundColor: "#f8fafc",
+    color: "#64748b",
     padding: 4,
     borderRadius: 4,
   },
@@ -447,5 +622,103 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
     marginBottom: 4,
+  },
+  // Tasks Section Styles
+  tasksContainer: {
+    backgroundColor: "#ffffff",
+    borderRadius: 8,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 16,
+  },
+  tasksLoadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  tasksLoadingText: {
+    marginLeft: 8,
+    color: "#666",
+  },
+  taskTypeContainer: {
+    marginBottom: 20,
+  },
+  taskTypeTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#444",
+    marginBottom: 12,
+  },
+  tasksList: {
+    gap: 12,
+  },
+  taskItem: {
+    backgroundColor: "#f8f9fa",
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#e9ecef",
+  },
+  taskHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  taskTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    flex: 1,
+    marginRight: 8,
+  },
+  taskStatus: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  taskStatusText: {
+    fontSize: 12,
+    fontWeight: "500",
+    textTransform: "capitalize",
+  },
+  taskDescription: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 8,
+    lineHeight: 20,
+  },
+  taskMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  taskDeadline: {
+    fontSize: 12,
+    color: "#888",
+  },
+  approvedBadge: {
+    fontSize: 12,
+    color: "#2e7d32",
+    fontWeight: "500",
+  },
+  noTasksContainer: {
+    alignItems: "center",
+    padding: 20,
+  },
+  noTasksText: {
+    fontSize: 16,
+    color: "#666",
+    fontStyle: "italic",
   },
 });
