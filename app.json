@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "ccs_mobile",
-    "slug": "ccs_mobile",
+    "slug": "ccsmobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -37,6 +37,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "43f19679-19dd-435d-bc74-3b98129d5f38"
+      }
+    },
+    "owner": "jeremiahvelasco"
   }
 }
