@@ -73,8 +73,33 @@ export default function Activities() {
     is_flexible: false,
     category: "",
   });
-  const { authenticatedFetch } = useAuth();
+  const { authenticatedFetch, user } = useAuth();
   const router = useRouter();
+
+  // Check if user is a student using the new role structure
+  const isStudent =
+    user &&
+    // Check in roles array
+    ((user.roles &&
+      user.roles.some(
+        (role: string) =>
+          role.toLowerCase() === "student" || role.toLowerCase() === "students"
+      )) ||
+      // Check in user_roles array (alternative naming)
+      (user.user_roles &&
+        user.user_roles.some(
+          (role: string) =>
+            role.toLowerCase() === "student" ||
+            role.toLowerCase() === "students"
+        )) ||
+      // Check primary_role
+      (user.primary_role &&
+        (user.primary_role.toLowerCase() === "student" ||
+          user.primary_role.toLowerCase() === "students")) ||
+      // Check legacy role field as fallback
+      (user.role &&
+        (user.role.toLowerCase() === "student" ||
+          user.role.toLowerCase() === "students")));
 
   // Fetch activities from the API
   useEffect(() => {
@@ -775,13 +800,15 @@ export default function Activities() {
               </>
             )}
 
-            {/* Floating Action Button */}
-            <TouchableOpacity
-              style={styles.floatingActionButton}
-              onPress={() => setCreateModalVisible(true)}
-            >
-              <IconSymbol name="plus" size={28} color="#ffffff" />
-            </TouchableOpacity>
+            {/* Floating Action Button - Only show for non-students */}
+            {!isStudent && (
+              <TouchableOpacity
+                style={styles.floatingActionButton}
+                onPress={() => setCreateModalVisible(true)}
+              >
+                <IconSymbol name="plus" size={28} color="#ffffff" />
+              </TouchableOpacity>
+            )}
 
             {/* Create Activity Modal */}
             {renderCreateActivityModal()}

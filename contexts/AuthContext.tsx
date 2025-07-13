@@ -15,7 +15,7 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const BASE_URL =
-  Platform.OS === "web" ? "http://127.0.0.1:8000" : "http://192.168.2.2:8000";
+  Platform.OS === "web" ? "http://127.0.0.1:8000" : "http://31.97.108.214";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);

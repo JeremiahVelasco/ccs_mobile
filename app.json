@@ -4,8 +4,8 @@
     "slug": "ccsmobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "ccsmobile",
+    "icon": "./assets/images/feu_icon.png",
+    "scheme": "feuccs",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -13,23 +13,24 @@
     },
     "android": {
       "adaptiveIcon": {
-        "package": "com.ccsmobile.app",
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "package": "com.feuccs.app",
+        "foregroundImage": "./assets/images/feu_icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.ccs.feu"
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/feu_icon.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/feu_icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
