@@ -7,19 +7,20 @@
     "icon": "./assets/images/feu_icon.png",
     "scheme": "feuccs",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "package": "com.feuccs.app",
         "foregroundImage": "./assets/images/feu_icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.ccs.feu",
-      "distribution": "internal",
+      "minSdkVersion": 21,
+      "compileSdkVersion": 34,
+      "targetSdkVersion": 34,
       "permissions": ["INTERNET", "ACCESS_NETWORK_STATE"]
     },
     "web": {
