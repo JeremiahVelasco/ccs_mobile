@@ -18,7 +18,9 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.ccs.feu"
+      "package": "com.ccs.feu",
+      "distribution": "internal",
+      "permissions": ["INTERNET", "ACCESS_NETWORK_STATE"]
     },
     "web": {
       "bundler": "metro",
